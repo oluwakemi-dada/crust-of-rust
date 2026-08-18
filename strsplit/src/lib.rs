@@ -1,13 +1,13 @@
 #![warn(missing_debug_implementations)]
 
 #[derive(Debug)]
-pub struct StrSplit<'a> {
-    remainder: Option<&'a str>,
-    delimiter: &'a str,
+pub struct StrSplit<'haystack, D> {
+    remainder: Option<&'haystack str>,
+    delimiter: D,
 }
 
-impl<'a> StrSplit<'a> {
-    fn new(haystack: &'a str, delimiter: &'a str) -> Self {
+impl<'haystack, D> StrSplit<'haystack, D> {
+    fn new(haystack: &'haystack str, delimiter: D) -> Self {
         Self {
             remainder: Some(haystack),
             delimiter,
@@ -15,24 +15,54 @@ impl<'a> StrSplit<'a> {
     }
 }
 
-impl<'a> Iterator for StrSplit<'a> {
-    type Item = &'a str;
+pub trait Delimiter {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)>;
+}
+
+impl<'haystack, D> Iterator for StrSplit<'haystack, D>
+where
+    D: Delimiter,
+{
+    type Item = &'haystack str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ref mut remainder) = self.remainder {
-            if let Some(next_delimiter) = remainder.find(self.delimiter) {
-                let until_delimiter = &remainder[..next_delimiter];
-                *remainder = &remainder[(next_delimiter + self.delimiter.len())..];
-                Some(until_delimiter)
-            } else {
-                self.remainder.take()
-            }
+        let remainder = self.remainder.as_mut()?;
+
+        if let Some((delim_start, delim_end)) = self.delimiter.find_next(remainder) {
+            let until_delimiter = &remainder[..delim_start];
+            *remainder = &remainder[delim_end..];
+            Some(until_delimiter)
         } else {
-            None
+            self.remainder.take()
         }
     }
 }
 
+impl Delimiter for &str {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.find(self).map(|start| (start, start + self.len()))
+    }
+}
+
+impl Delimiter for char {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.char_indices()
+            .find(|(_, ch)| ch == self)
+            .map(|(start, _)| (start, start + self.len_utf8()))
+    }
+}
+
+pub fn until_char(s: &str, c: char) -> &str {
+    let delim = format!("{}", c);
+    StrSplit::new(s, &*delim)
+        .next()
+        .expect("StrSplit always gives at least one result")
+}
+
+#[test]
+fn until_char_test() {
+    assert_eq!(until_char("hello world", 'o'), "hell");
+}
 #[test]
 fn it_works() {
     let haystack = "a b c d e";
