@@ -42,12 +42,12 @@ where
     }
 }
 
-pub fn flatten<I>(iter: I) -> Flatten<I>
+pub fn flatten<I>(iter: I) -> Flatten<I::IntoIter>
 where
-    I: Iterator,
+    I: IntoIterator,
     I::Item: IntoIterator,
 {
-    Flatten::new(iter)
+    Flatten::new(iter.into_iter())
 }
 
 #[cfg(test)]
@@ -62,7 +62,7 @@ mod tests {
     #[test]
     fn empty_wide() {
         assert_eq!(
-            flatten(vec![Vec::<()>::new(), vec![], vec![]].into_iter()).count(),
+            flatten(vec![Vec::<()>::new(), vec![], vec![]]).count(),
             0
         )
     }
@@ -79,13 +79,13 @@ mod tests {
 
     #[test]
     fn two_wide() {
-        assert_eq!(flatten(vec![vec!["a"], vec!["b"]].into_iter()).count(), 2)
+        assert_eq!(flatten(vec![vec!["a"], vec!["b"]]).count(), 2)
     }
 
     #[test]
     fn four_wide() {
         assert_eq!(
-            flatten(vec![vec!["a", "b"], vec!["c", "d"]].into_iter()).count(),
+            flatten(vec![vec!["a", "b"], vec!["c", "d"]]).count(),
             4
         )
     }
